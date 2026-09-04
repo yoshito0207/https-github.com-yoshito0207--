@@ -1,0 +1,1074 @@
+<!doctype html>
+<html lang="ja">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>自習マスター PRO - 完成版</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lucide@0.577.0/dist/umd/lucide.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="/_sdk/fbe2ebfd64647c54.data_sdk.js"></script>
+  <script src="/_sdk/5629ea66dc55d54f.editing_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;700;800&family=Zen+Maru+Gothic:wght@500;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-main: #0b0f19;
+      --card-bg: #1e293b;
+      --accent-blue: #38bdf8;
+      --accent-purple: #c084fc;
+      --accent-green: #4ade80;
+      --accent-gold: #fbbf24;
+      --accent-rose: #fb7185;
+    }
+    body {
+      background-color: var(--bg-main);
+      color: #f8fafc;
+      font-family: 'Zen Maru Gothic', 'Plus Jakarta Sans', sans-serif;
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.75);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .app-view { display: none; }
+    .app-view.is-active { display: block; animation: fadeIn 0.2s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+    
+    body:not(.is-authenticated) .study-app { display: none; }
+    body.is-authenticated .login-screen { display: none; }
+    body.is-admin .student-only { display: none !important; }
+    body:not(.is-admin) .admin-only { display: none !important; }
+
+    .xp-bar-inner { transition: width 0.4s ease-out; }
+    .answer-btn {
+      transition: all 0.15s ease;
+      background: rgba(51, 65, 85, 0.5);
+      border: 2px solid rgba(255, 255, 255, 0.08);
+    }
+    .answer-btn:hover:not(:disabled) {
+      border-color: var(--accent-blue);
+      transform: translateY(-1px);
+      background: rgba(56, 189, 248, 0.12);
+    }
+    .answer-btn.is-correct { border-color: var(--accent-green) !important; background: rgba(74, 222, 128, 0.2) !important; color: #4ade80 !important; }
+    .answer-btn.is-wrong { border-color: var(--accent-rose) !important; background: rgba(251, 113, 133, 0.2) !important; color: #fb7185 !important; }
+  </style>
+ </head>
+ <body>
+
+  <!-- ログイン画面 -->
+  <section class="login-screen flex min-h-screen items-center justify-center p-4">
+   <div class="glass-card w-full max-w-md rounded-3xl p-8 shadow-2xl">
+    <div class="flex items-center justify-center gap-2 text-amber-400 mb-2">
+     <i data-lucide="sparkles" class="h-6 w-6"></i>
+     <span class="font-bold tracking-widest text-sm">自習マスター PRO</span>
+    </div>
+    <h1 class="text-3xl font-black text-center text-white mb-2">ログイン</h1>
+    <p class="text-xs text-slate-400 text-center mb-6">生徒ID (4桁) とパスワードを入力してください</p>
+    <form id="login-form" class="space-y-4">
+     <div>
+      <label class="block text-xs font-bold text-slate-400 mb-1">生徒ID</label>
+      <input id="login-student-id" class="w-full rounded-2xl bg-slate-800/80 border-2 border-slate-700 px-4 py-3 text-center text-2xl font-black tracking-widest text-white focus:border-sky-400 focus:outline-none" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" placeholder="0000" required>
+     </div>
+     <div>
+      <label class="block text-xs font-bold text-slate-400 mb-1">パスワード</label>
+      <input id="login-password" type="password" class="w-full rounded-2xl bg-slate-800/80 border-2 border-slate-700 px-4 py-3 text-center text-lg font-bold text-white focus:border-sky-400 focus:outline-none" placeholder="パスワード" required>
+     </div>
+     <button type="submit" class="w-full rounded-2xl bg-gradient-to-r from-sky-400 to-blue-600 py-3 font-extrabold text-white shadow-lg hover:brightness-110 active:scale-95 transition">学習をはじめる！</button>
+     <p id="login-message" class="text-xs font-bold text-rose-400 text-center min-h-[1.25rem]"></p>
+    </form>
+   </div>
+  </section>
+
+  <!-- メインアプリ -->
+  <div class="study-app min-h-screen pb-24 md:pb-10">
+   
+   <header class="glass-card sticky top-0 z-30 border-b border-slate-800 px-4 py-3">
+    <div class="mx-auto flex max-w-6xl items-center justify-between gap-2">
+     <div class="flex items-center gap-3">
+      <div id="user-level-badge" class="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-200 text-slate-950 font-black text-sm shadow-md">
+       Lv.1
+      </div>
+      <div>
+       <div class="flex items-center gap-2">
+        <span id="user-rank-title" class="text-xs font-extrabold text-amber-400">特進チャレンジャー</span>
+        <span id="streak-count" class="flex items-center gap-1 text-xs font-bold text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded-full border border-rose-500/20"><i data-lucide="flame" class="h-3 w-3"></i> 0日連続</span>
+       </div>
+       <div class="w-28 sm:w-44 bg-slate-800 h-2.5 rounded-full overflow-hidden mt-1 border border-slate-700">
+        <div id="xp-bar" class="xp-bar-inner bg-gradient-to-r from-sky-400 to-emerald-400 h-full w-0"></div>
+       </div>
+      </div>
+     </div>
+
+     <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5 rounded-full bg-slate-800/90 px-3 py-1 border border-slate-700">
+       <i data-lucide="coins" class="h-4 w-4 text-amber-400"></i>
+       <span id="user-coins" class="text-sm font-extrabold text-amber-300">0</span>
+      </div>
+      <button id="logout-button" type="button" class="rounded-xl bg-slate-800 p-2 text-slate-400 hover:text-white border border-slate-700">
+       <i data-lucide="log-out" class="h-4 w-4"></i>
+      </button>
+     </div>
+    </div>
+   </header>
+
+   <main class="mx-auto max-w-6xl px-4 pt-6">
+
+    <!-- ホーム -->
+    <section id="home-view" class="app-view is-active student-only space-y-6">
+     <div class="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-900/60 via-indigo-900/50 to-slate-900 border border-slate-700/60 p-6 shadow-xl">
+      <div class="relative z-10">
+       <span class="text-xs font-bold tracking-widest text-sky-400">ADVANCED FOCUS</span>
+       <h2 class="text-2xl font-black text-white mt-1">中高一貫ハイレベル演習で差をつけよう！</h2>
+       <p class="text-sm text-slate-300 mt-2">応用・難問対策でXPとコインを獲得できます。</p>
+       <button id="quick-practice-btn" class="mt-4 rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 px-5 py-2.5 text-sm font-extrabold text-slate-950 shadow-lg hover:brightness-110 active:scale-95 transition">
+        おすすめ演習を始める
+       </button>
+      </div>
+     </div>
+
+     <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div class="glass-card rounded-2xl p-4 border border-slate-800">
+       <span class="text-xs font-bold text-slate-400">今月の解答案数</span>
+       <p id="stat-monthly-vol" class="text-2xl font-black text-sky-400 mt-1">0問</p>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-800">
+       <span class="text-xs font-bold text-slate-400">平均正答率</span>
+       <p id="stat-accuracy" class="text-2xl font-black text-emerald-400 mt-1">—</p>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-800">
+       <span class="text-xs font-bold text-slate-400">実学習時間</span>
+       <p id="stat-study-time" class="text-2xl font-black text-amber-400 mt-1">0分</p>
+      </div>
+      <div class="glass-card rounded-2xl p-4 border border-slate-800">
+       <span class="text-xs font-bold text-slate-400">累計獲得XP</span>
+       <p id="stat-total-xp" class="text-2xl font-black text-purple-400 mt-1">0</p>
+      </div>
+     </div>
+
+     <div class="glass-card rounded-3xl p-6 border border-slate-800">
+      <div class="flex items-center justify-between mb-4">
+       <h3 class="text-lg font-black text-white flex items-center gap-2"><i data-lucide="trophy" class="h-5 w-5 text-amber-400"></i> 実績バッジ</h3>
+       <span id="badge-progress" class="text-xs text-slate-400">0 / 6 解放</span>
+      </div>
+      <div id="awards-container" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+     </div>
+    </section>
+
+    <!-- 演習・問題画面 -->
+    <section id="practice-view" class="app-view student-only space-y-6">
+     <div class="glass-card rounded-3xl p-6 border border-slate-800">
+      <h2 class="text-2xl font-black text-white mb-4 flex items-center gap-2"><i data-lucide="book-open-check" class="h-6 w-6 text-sky-400"></i> 中高一貫 5教科発展演習</h2>
+      
+      <form id="practice-form" class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 items-end">
+       <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">教科</label>
+        <select id="sel-subject" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-white font-bold focus:outline-none">
+         <option value="数学">数学</option><option value="英語">英語</option><option value="国語">国語</option><option value="理科">理科</option><option value="社会">社会</option>
+        </select>
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">学年・学期指定</label>
+        <select id="sel-grade" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-white font-bold focus:outline-none">
+         <option>中1・1学期</option><option>中1・2学期</option><option>中1・3学期</option>
+         <option>中2・1学期</option><option>中2・2学期</option><option>中2・3学期</option>
+         <option>中3・1学期</option><option>中3・2学期</option><option>中3・3学期</option>
+        </select>
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">難易度</label>
+        <select id="sel-diff" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-white font-bold focus:outline-none">
+         <option value="標準">標準</option><option value="発展" selected>発展</option><option value="難問">難問</option>
+        </select>
+       </div>
+       <div>
+        <label class="block text-xs font-bold text-slate-400 mb-1">問題数</label>
+        <input id="sel-count" type="number" min="3" max="20" value="5" class="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-white font-bold focus:outline-none">
+       </div>
+       <button type="submit" class="w-full rounded-xl bg-sky-500 py-2 text-sm font-extrabold text-slate-950 shadow-md hover:bg-sky-400 transition">演習スタート</button>
+      </form>
+
+      <div class="mt-4 flex gap-2 flex-wrap">
+       <button id="btn-mode-standard" type="button" class="rounded-xl px-4 py-2 text-xs font-bold bg-sky-500 text-slate-950">通常演習</button>
+       <button id="btn-mode-wrong" type="button" class="hidden rounded-xl px-4 py-2 text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">復習BOXの問題に挑戦</button>
+      </div>
+
+      <div id="practice-empty" class="mt-8 rounded-2xl border border-dashed border-slate-700 p-10 text-center text-slate-500">
+       条件を設定して「演習スタート」ボタンを押してください。
+      </div>
+
+      <div id="practice-active-area" class="mt-6 space-y-6 hidden">
+       <div class="flex items-center justify-between rounded-xl bg-slate-900/80 px-4 py-2.5 border border-slate-800 text-xs">
+        <span id="active-label" class="font-extrabold text-sky-400">数学 · 中1・1学期</span>
+        <div class="flex items-center gap-3">
+         <span id="timer-display" class="font-mono text-amber-400 font-bold"><i data-lucide="timer" class="inline h-3.5 w-3.5"></i> 00:00</span>
+         <span id="answered-progress" class="font-mono text-slate-400">0 / 5</span>
+        </div>
+       </div>
+
+       <div id="questions-container" class="space-y-4"></div>
+
+       <div class="flex justify-between items-center pt-4 border-t border-slate-800">
+        <span class="text-xs text-slate-400">すべての問題に回答すると採点できます</span>
+        <button id="btn-grade" type="button" class="rounded-xl bg-gradient-to-r from-emerald-400 to-teal-500 px-6 py-2.5 text-sm font-black text-slate-950 shadow-lg hover:brightness-110">
+         解答を提出して採点
+        </button>
+       </div>
+
+       <div id="result-box" class="hidden rounded-2xl bg-emerald-950/40 border border-emerald-500/30 p-5 text-center space-y-2">
+        <span class="text-xs font-bold tracking-widest text-emerald-400">RESULT</span>
+        <p id="result-score-text" class="text-3xl font-black text-white">5 / 5問正解 (100%)</p>
+        <p id="result-reward-text" class="text-sm font-bold text-amber-300">+50 XP 獲得！ 🪙 +10 コイン獲得！</p>
+       </div>
+      </div>
+     </div>
+    </section>
+
+    <!-- 課題配信画面 -->
+    <section id="tasks-view" class="app-view student-only space-y-6">
+     <div class="glass-card rounded-3xl p-6 border border-slate-800">
+      <h2 class="text-2xl font-black text-white mb-4 flex items-center gap-2"><i data-lucide="check-square" class="h-6 w-6 text-emerald-400"></i> 先生からの配信課題</h2>
+      <div id="tasks-container" class="grid gap-3"></div>
+      <div id="tasks-empty-state" class="rounded-2xl border border-dashed border-slate-700 p-8 text-center text-slate-500">
+       現在配信されている課題はありません。
+      </div>
+     </div>
+    </section>
+
+    <!-- 成績・管理者アナリティクス画面 -->
+    <section id="records-view" class="app-view space-y-6">
+     <div class="admin-only glass-card rounded-3xl p-6 border border-slate-800 space-y-6">
+      <div class="flex items-center justify-between">
+       <h2 class="text-xl font-black text-white flex items-center gap-2"><i data-lucide="layout-dashboard" class="h-6 w-6 text-sky-400"></i> 管理者アナリティクス＆課題配信</h2>
+       <span class="text-xs bg-sky-500/20 text-sky-300 border border-sky-500/30 px-3 py-1 rounded-full font-bold">管理者権限</span>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+       <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+        <h4 class="text-xs font-bold text-slate-400 mb-2">学期別 平均正答率グラフ (%) 【リアルタイム集計】</h4>
+        <canvas id="admin-chart" class="max-h-56"></canvas>
+       </div>
+       <div class="space-y-4">
+        <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+         <h4 class="text-xs font-bold text-slate-400 mb-2">🔥 今月の月間学習量ランキング Top 5</h4>
+         <div id="admin-monthly-ranking" class="space-y-1.5 text-xs font-bold"></div>
+        </div>
+        <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+         <h4 class="text-xs font-bold text-slate-400 mb-2">⚠️ 自動集計：頻出つまずき分野ランキング</h4>
+         <div id="admin-weakness-ranking" class="space-y-1.5 text-xs font-bold"></div>
+        </div>
+       </div>
+      </div>
+
+      <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+       <h4 class="text-xs font-bold text-slate-400 mb-2">👥 生徒別 成績サマリー一覧</h4>
+       <div class="overflow-x-auto max-h-48 overflow-y-auto">
+        <table class="w-full text-left text-xs border-collapse">
+         <thead>
+          <tr class="border-b border-slate-800 text-slate-400">
+           <th class="p-2">生徒ID</th>
+           <th class="p-2">解答数</th>
+           <th class="p-2">正答率</th>
+           <th class="p-2">学習時間</th>
+           <th class="p-2">XP</th>
+           <th class="p-2">今月</th>
+          </tr>
+         </thead>
+         <tbody id="admin-student-summary-body" class="divide-y divide-slate-800/60 font-medium"></tbody>
+        </table>
+       </div>
+      </div>
+
+      <div class="bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+       <h3 class="text-sm font-bold text-white mb-3">生徒への新規課題配信</h3>
+       <form id="assignment-form" class="grid gap-3 sm:grid-cols-3">
+        <input id="assign-id" placeholder="対象生徒ID (例: 1002 または ALL)" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white font-bold focus:outline-none" required>
+        <input id="assign-title" placeholder="課題タイトル (例: 数学二次方程式特訓)" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white font-bold focus:outline-none" required>
+        <select id="assign-subject" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white font-bold focus:outline-none">
+         <option value="数学">数学</option><option value="英語">英語</option><option value="国語">国語</option><option value="理科">理科</option><option value="社会">社会</option>
+        </select>
+        <select id="assign-grade" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white font-bold focus:outline-none">
+         <option>中1・1学期</option><option>中1・2学期</option><option>中1・3学期</option>
+         <option>中2・1学期</option><option>中2・2学期</option><option>中2・3学期</option>
+         <option>中3・1学期</option><option>中3・2学期</option><option>中3・3学期</option>
+        </select>
+        <select id="assign-diff" class="rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-xs text-white font-bold focus:outline-none">
+         <option>標準</option><option selected>発展</option><option>難問</option>
+        </select>
+        <button type="submit" class="rounded-xl bg-sky-500 py-2 text-xs font-extrabold text-slate-950 hover:bg-sky-400">課題を配信する</button>
+       </form>
+       <p id="assignment-msg" class="text-xs font-bold text-emerald-400 mt-2 min-h-[1rem]"></p>
+      </div>
+     </div>
+
+     <div class="glass-card rounded-3xl p-6 border border-slate-800">
+      <div class="flex items-center justify-between mb-4">
+       <h3 class="text-lg font-black text-white flex items-center gap-2"><i data-lucide="history" class="h-5 w-5 text-amber-400"></i> 学習履歴一覧</h3>
+       <span id="records-count-badge" class="text-xs bg-slate-800 px-2.5 py-1 rounded-full font-bold text-slate-300">0件</span>
+      </div>
+      <div class="overflow-x-auto">
+       <table class="w-full text-left text-xs border-collapse">
+        <thead>
+         <tr class="border-b border-slate-800 text-slate-400">
+          <th class="p-2">生徒ID</th>
+          <th class="p-2">教科/活動</th>
+          <th class="p-2">学年学期</th>
+          <th class="p-2">つまずき分野</th>
+          <th class="p-2">スコア</th>
+          <th class="p-2">学習時間</th>
+          <th class="p-2">日時</th>
+         </tr>
+        </thead>
+        <tbody id="records-table-body" class="divide-y divide-slate-800/60 font-medium"></tbody>
+       </table>
+       <div id="records-empty" class="p-8 text-center text-slate-500">
+        まだ学習記録がありません。
+       </div>
+      </div>
+     </div>
+    </section>
+
+   </main>
+
+   <nav class="fixed bottom-0 left-0 right-0 z-40 glass-card border-t border-slate-800 bg-slate-950/90 backdrop-blur-md px-4 py-2">
+    <div class="mx-auto flex max-w-md justify-around items-center">
+     <button data-view="home-view" class="student-only flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 text-[10px] font-bold">
+      <i data-lucide="home" class="h-5 w-5"></i> ホーム
+     </button>
+     <button data-view="practice-view" class="student-only flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 text-[10px] font-bold">
+      <i data-lucide="calculator" class="h-5 w-5"></i> 演習
+     </button>
+     <button data-view="tasks-view" class="student-only flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 text-[10px] font-bold">
+      <i data-lucide="list-todo" class="h-5 w-5"></i> 課題
+     </button>
+     <button data-view="records-view" class="flex flex-col items-center gap-1 text-slate-400 hover:text-sky-400 text-[10px] font-bold">
+      <i data-lucide="bar-chart-3" class="h-5 w-5"></i> 記録・管理
+     </button>
+    </div>
+   </nav>
+
+  </div>
+
+  <template id="tpl-question">
+   <div class="glass-card rounded-2xl p-5 border border-slate-800 space-y-3">
+    <div class="flex items-center justify-between">
+     <span class="rounded-full bg-sky-500/10 border border-sky-500/30 px-3 py-0.5 text-xs font-bold text-sky-400" data-field="topic">単元</span>
+     <span class="text-xs font-mono font-bold text-slate-400" data-field="number">Q1</span>
+    </div>
+    <p class="text-sm font-bold text-white leading-relaxed" data-field="question"></p>
+    <div class="grid gap-2 sm:grid-cols-2" data-field="choices"></div>
+    <div class="hidden rounded-xl bg-slate-900/90 border border-slate-800 p-3 text-xs text-slate-300 leading-relaxed" data-field="explanation"></div>
+   </div>
+  </template>
+
+  <template id="tpl-task">
+   <div class="glass-card rounded-2xl p-4 border border-slate-800 flex items-center justify-between">
+    <div>
+     <span class="text-[10px] font-extrabold text-emerald-400" data-field="status">配信課題</span>
+     <h4 class="font-bold text-white text-sm mt-0.5" data-field="title"></h4>
+     <p class="text-xs text-slate-400" data-field="detail"></p>
+    </div>
+    <button data-action="start-task" class="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400">挑戦</button>
+   </div>
+  </template>
+
+  <template id="tpl-award">
+   <div class="glass-card rounded-2xl p-3 border border-slate-800 flex items-center gap-3">
+    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-400/10 text-amber-400 border border-amber-400/20">
+     <i data-lucide="award" class="h-5 w-5"></i>
+    </div>
+    <div>
+     <h4 class="text-xs font-bold text-white" data-field="title"></h4>
+     <p class="text-[10px] text-slate-400 mt-0.5" data-field="detail"></p>
+    </div>
+   </div>
+  </template>
+
+  <script>
+    let records = [];
+    let currentStudentId = null;
+    let activeQuestions = [];
+    let activeMeta = null;
+    let activeTaskId = null;
+    let studyTimerSeconds = 0, timerInterval = null;
+    let adminChart = null;
+
+    let passwords = JSON.parse(localStorage.getItem("master_passwords") || "{\"0001\":\"admin1234\"}");
+
+    const advancedQuestionBank = {
+      "数学": {
+        "中1・1学期": [
+          { topic: "正負の数の応用", text: "数直線上で点A(-5)から点B(+3)までの距離の中点を表す数はどれか？", choices: ["-1", "1", "-4", "4"], answer: 0, exp: "解説：2点間の距離は8。中点は-5+4 = -1となります。" },
+          { topic: "文字式の利用", text: "十の位がa、一の位がbの2桁の自然数と、入れ替えた数の和はどれで割り切れるか？", choices: ["11", "9", "3", "7"], answer: 0, exp: "解説：(10a+b)+(10b+a) = 11(a+b)となり、11の倍数になります。" },
+          { topic: "一次方程式の応用", text: "ある数xの3倍から5を引いた数は、xの2倍に2を加えた数に等しい。xを求めよ。", choices: ["7", "5", "3", "9"], answer: 0, exp: "解説：3x - 5 = 2x + 2 より x = 7 です。" }
+        ],
+        "中1・2学期": [
+          { topic: "平面図形の作図", text: "線分ABの垂直二等分線上の点Pについて、つねに成り立つ性質はどれか？", choices: ["PA = PB", "PA = 2PB", "点PはABの中点", "角APB = 90°"], answer: 0, exp: "解説：垂直二等分線上の点から両端までの距離は等しくなります。" },
+          { topic: "空間図形・最短経路", text: "底面が一辺4cmの正方形で高さが6cmの直方体。側面の最短の長さを求めよ。", choices: ["10cm", "8cm", "12cm", "6cm"], answer: 0, exp: "解説：展開図の直角三角形の斜辺を計算し10cmとなります。" }
+        ],
+        "中1・3学期": [
+          { topic: "比例と反比例の応用", text: "yがxに反比例し、x=3のときy=8である。x=4のときのyの値を求めよ。", choices: ["6", "12", "4", "24"], answer: 0, exp: "解説：反比例の式は y=24/x なので、x=4のときy=6です。" }
+        ],
+        "中2・1学期": [
+          { topic: "式の計算の利用", text: "連続する3つの整数の和は、つねにどの数の倍数になるか？", choices: ["3の倍数", "5の倍数", "6の倍数", "偶数"], answer: 0, exp: "解説：(n-1) + n + (n+1) = 3n となり3の倍数になります。" },
+          { topic: "連立方程式の文章題", text: "リンゴ3個とミカン5個の代金は900円、リンゴ5個とミカン3個の代金は1100円。リンゴ1個の値段は？", choices: ["200円", "150円", "250円", "180円"], answer: 0, exp: "解説：連立方程式を解くとリンゴ200円、ミカン60円となります。" }
+        ],
+        "中2・2学期": [
+          { topic: "一次関数のグラフと図形", text: "直線 y=2x+4 と x軸、y軸で囲まれた三角形の面積を求めよ。", choices: ["4", "8", "2", "6"], answer: 0, exp: "解説：切片が4、x切片が-2なので、底辺2×高さ4÷2 = 4です。" },
+          { topic: "図形の合同証明", text: "二等辺三角形の頂角の二等分線が底辺を垂直二等分することの証明で使う合同条件はどれか？", choices: ["2組の辺とその間の角", "3組の辺がそれぞれ等しい", "1組の辺とその両端の角", "直角三角形の斜辺と1つの鋭角"], answer: 0, exp: "解説：2辺とその間の角がそれぞれ等しいことを示します。" }
+        ],
+        "中2・3学期": [
+          { topic: "確率の応用", text: "大小2つのサイコロを同時に投げるとき、出た目の積が12になる確率は？", choices: ["1/9", "1/6", "1/12", "1/36"], answer: 0, exp: "解説：(2,6),(3,4),(4,3),(6,2)の4通り。4/36 = 1/9です。" }
+        ],
+        "中3・1学期": [
+          { topic: "平方根の整数部分", text: "√15 の整数部分をa、小数部分をbとするとき、a^2 - b^2 の値は？", choices: ["9 - 2√15", "15 - 2√15", "3 - √15", "7"], answer: 0, exp: "解説：a=3, b=√15-3を代入して計算します。" },
+          { topic: "因数分解の難問", text: "x^2 - y^2 - 4x + 4 を因数分解しなさい。", choices: ["(x - 2 + y)(x - 2 - y)", "(x - 2)^2 - y^2", "(x - y)(x + y)", "(x+y-2)(x-y-2)"], answer: 0, exp: "解説：(x-2)^2 - y^2 に変形して和と差の積を用います。" }
+        ],
+        "中3・2学期": [
+          { topic: "二次方程式の利用", text: "縦の長さが横の長さより3cm短い長方形の面積が40㎠のとき、横の長さを求めよ。", choices: ["8cm", "5cm", "10cm", "7cm"], answer: 0, exp: "解説：x(x-3)=40 より x=8（x>0）となります。" },
+          { topic: "二次関数 y=ax^2", text: "y=ax^2において、xが-2から4まで変化するときの変化の割合が3のとき、aを求めよ。", choices: ["1/2", "1/3", "2", "3"], answer: 0, exp: "解説：変化の割合公式 a(x1+x2) = a(-2+4) = 3 より a=1/2 です。" }
+        ],
+        "中3・3学期": [
+          { topic: "三平方の定理の空間応用", text: "1辺が6cmの立方体の対角線の長さを求めよ。", choices: ["6√3 cm", "6√2 cm", "12cm", "9cm"], answer: 0, exp: "解説：立方体の対角線公式 √(6^2+6^2+6^2) = 6√3 cm です。" }
+        ]
+      },
+      "英語": {
+        "中1・1学期": [
+          { topic: "be動詞と一般動詞", text: "次のうち、正しい疑問文の語順を選びなさい。", choices: ["Do you play tennis?", "Play you tennis?", "Are you play tennis?", "You do play tennis?"], answer: 0, exp: "解説：一般動詞の疑問文は Do 主語 原形〜 の形になります。" }
+        ],
+        "中1・2学期": [
+          { topic: "三人称単数現在形", text: '"He (   ) soccer after school every day."', choices: ["plays", "play", "playing", "played"], answer: 0, exp: "解説：主語がHeで現在形なので動詞にsがつきます。" }
+        ],
+        "中1・3学期": [
+          { topic: "過去形マスター", text: '"She (   ) to Tokyo last week."', choices: ["went", "go", "goes", "gone"], answer: 0, exp: "解説：last week（過去）なので go の過去形 went です。" }
+        ],
+        "中2・1学期": [
+          { topic: "不定詞の応用", text: '"It is necessary for us (   ) English fluently."', choices: ["to speak", "speaking", "speak", "spoke"], answer: 0, exp: "解説：It is 形容詞 for 人 to do の構文です。" }
+        ],
+        "中2・2学期": [
+          { topic: "比較級・最上級", text: '"This mountain is (   ) than that one."', choices: ["higher", "highest", "high", "more high"], answer: 0, exp: "解説：than があるため比較級 higher です。" }
+        ],
+        "中2・3学期": [
+          { topic: "受動態", text: '"This picture was (   ) by Picasso."', choices: ["painted", "paint", "painting", "paints"], answer: 0, exp: "解説：受動態（be + 過去分詞）のpaintedです。" }
+        ],
+        "中3・1学期": [
+          { topic: "関係代名詞", text: '"This is the book (   ) I bought yesterday."', choices: ["which", "who", "where", "whose"], answer: 0, exp: "解説：先行詞が物であり目的格なので which です。" }
+        ],
+        "中3・2学期": [
+          { topic: "現在完了進行形", text: '"I have (   ) English for three hours."', choices: ["been studying", "studied", "study", "studying"], answer: 0, exp: "解説：継続用法を強調する現在完了進行形 have been -ing です。" }
+        ],
+        "中3・3学期": [
+          { topic: "仮定法過去", text: '"If I (   ) rich, I could buy a big house."', choices: ["were", "am", "was", "be"], answer: 0, exp: "解説：仮定法過去ではbe動詞は主語に関わらず were を用いるのが一般的です。" }
+        ]
+      },
+      "理科": {
+        "中1・1学期": [
+          { topic: "植物の分類と仕組み", text: "アブラナやタンポポのように、葉脈が網状で、主根と側根をもつグループを何というか？", choices: ["双子葉類", "単子葉類", "裸子植物", "シダ植物"], answer: 0, exp: "解説：網状脈と主根・側根をもつのは双子葉類です。" }
+        ],
+        "中1・2学期": [
+          { topic: "身の回りの物質と密度", text: "質量が54gで体積が20㎤の金属の密度は何g/㎤か？", choices: ["2.7 g/㎤", "2.0 g/㎤", "5.4 g/㎤", "1.0 g/㎤"], answer: 0, exp: "解説：密度 = 質量 ÷ 体積 = 54 / 20 = 2.7 です。" }
+        ],
+        "中1・3学期": [
+          { topic: "光・音・力の性質", text: "水面から空気中へ光が進むとき、入射角と屈折角の関係について正しいものはどれか？", choices: ["入射角 < 屈折角", "入射角 > 屈折角", "入射角 = 屈折角", "全反射して進まない"], answer: 0, exp: "解説：水から空気へ進むときは屈折角の方が大きくなります。" }
+        ],
+        "中2・1学期": [
+          { topic: "電流とオームの法則", text: "10Ωと20Ωを直列につなぎ全体に30Vを加えたとき、10Ωにかかる電圧は？", choices: ["10V", "20V", "30V", "15V"], answer: 0, exp: "解説：電流は1Aなので10Ω×1A = 10V です。" }
+        ],
+        "中2・2学期": [
+          { topic: "化学変化と質量保存", text: "銅粉を完全に酸化させたとき、銅の質量とできた酸化銅の質量の比は何度になるか？", choices: ["4 : 5", "3 : 2", "2 : 3", "1 : 2"], answer: 0, exp: "解説：銅：酸素：酸化銅 = 4 : 1 : 5 です。" }
+        ],
+        "中2・3学期": [
+          { topic: "天気と大気の動き", text: "気圧配置で、周囲より気圧が高く、中心で下降気流が生じている場所を何というか？", choices: ["高気圧", "低気圧", "前線", "等圧線"], answer: 0, exp: "解説：高気圧では中心で空気が下降し、天気は良くなります。" }
+        ],
+        "中3・1学期": [
+          { topic: "水溶液とイオン", text: "塩酸（HCl）に電流を流したとき、陰極側に発生する気体はどれか？", choices: ["水素", "塩素", "酸素", "二酸化炭素"], answer: 0, exp: "解説：水素イオンが陰極で電子を受け取り水素が発生します。" }
+        ],
+        "中3・2学期": [
+          { topic: "運動とエネルギー", text: "斜面を下る台車が、時間の経過とともに速さを増していくとき、エネルギーの変換について正しいものは？", choices: ["位置エネルギーが運動エネルギーに変わる", "運動エネルギーが位置エネルギーに変わる", "エネルギー総量は減少する", "摩擦熱で消滅する"], answer: 0, exp: "解説：力学的エネルギー保存の法則により位置から運動へ変換されます。" }
+        ],
+        "中3・3学期": [
+          { topic: "地球と宇宙", text: "太陽系の惑星のうち、地球型惑星に分類されないものはどれか？", choices: ["木星", "水星", "金星", "火星"], answer: 0, exp: "解説：木星はガスを主成分とする木星型（巨大ガス惑星）です。" }
+        ]
+      },
+      "社会": {
+        "中1・1学期": [
+          { topic: "世界地理・時差計算", text: "東経135°が正午12:00のとき、西経45°の地方時は何時か？", choices: ["午前0時（前日）", "午後6時", "午前6時", "午後12時"], answer: 0, exp: "解説：経度差180度で12時間差、西側なので午前0時です。" }
+        ],
+        "中1・2学期": [
+          { topic: "世界の諸地域", text: "ヨーロッパ連合（EU）の共通通貨の名称はどれか？", choices: ["ユーロ", "ドル", "ポンド", "フラン"], answer: 0, exp: "解説：EUの多くの国でユーロが導入されています。" }
+        ],
+        "中1・3学期": [
+          { topic: "日本地理・気候", text: "中国・四国地方の気候で、冬に雪が多く降る気候区を何というか？", choices: ["日本海側気候", "瀬戸内海式気候", "太平洋側気候", "内陸性気候"], answer: 0, exp: "解説：冬の季節風により日本海側は降雪が多くなります。" }
+        ],
+        "中2・1学期": [
+          { topic: "江戸幕府と鎖国", text: "江戸幕府がキリスト教の取り締まりや貿易統制のために出した最後の法令はどれか？", choices: ["鎖国令", "武家諸法度", "禁中並公家諸法度", "絵踏み"], answer: 0, exp: "解説：1639年のオランダ船の制限などによる鎖国が完成しました。" }
+        ],
+        "中2・2学期": [
+          { topic: "明治維新", text: "1873年に国民皆兵の原則を定めて導入された制度はどれか？", choices: ["徴兵令", "地租改正", "学制", "廃藩置県"], answer: 0, exp: "解説：満20歳以上の男性に兵役を課す徴兵令が出されました。" }
+        ],
+        "中2・3学期": [
+          { topic: "世界恐慌", text: "1929年に株価の大暴落をきっかけに始まった世界的な不況を何というか？", choices: ["世界恐慌", "オイルショック", "産業革命", "バブル経済"], answer: 0, exp: "解説：ニューヨークのウォール街発の世界恐慌です。" }
+        ],
+        "中3・1学期": [
+          { topic: "憲法と人権", text: "日本国憲法が保障する基本権のうち、精神的自由権に含まれないものはどれか？", choices: ["職業選択の自由", "思想・信条の自由", "表現の自由", "信教の自由"], answer: 0, exp: "解説：職業選択の自由は経済活動の自由（自由権）です。" }
+        ],
+        "中3・2学期": [
+          { topic: "民主政治と地方自治", text: "地方公共団体が住民のための条例を制定できる根拠となる憲法の条文はどれか？", choices: ["第94条", "第21条", "第25条", "第92条"], answer: 0, exp: "解説：憲法第94条に地方自治体の条例制定権が定められています。" }
+        ],
+        "中3・3学期": [
+          { topic: "国際社会と環境", text: "環境問題において、温室効果ガスの排出量取引などを定めた国際的な取り決めはどれか？", choices: ["京都議定書", "NPT", "PKO", "WHO憲章"], answer: 0, exp: "解説：1997年の気候変動枠組条約第3回締約国会議（COP3）で採択されました。" }
+        ]
+      },
+      "国語": {
+        "中1・1学期": [
+          { topic: "漢字・文の組み立て", text: "次のうち、主語と述語のねじれがない正しい文を選びなさい。", choices: ["私の夢は、医者になることです。", "この本は、私が昨日買ったところです。", "朝起きて、すぐ学校に行きました。", "遠足に行ったので、とても楽しかった。"], answer: 0, exp: "解説：「夢は〜ことです」と呼応が正しく取れています。" }
+        ],
+        "中1・2学期": [
+          { topic: "古典の基礎・竹取物語", text: "『竹取物語』の冒頭にある「今は昔、竹取の翁といふものありけり」の「翁」の現代語訳として正しいものは？", choices: ["おじいさん", "おばあさん", "美しい娘", "貴族"], answer: 0, exp: "解説：翁は年老いた男性（おじいさん）を意味します。" }
+        ],
+        "中1・3学期": [
+          { topic: "文法・文の成分", text: "「彼は<u>熱心に</u>本を読んでいる」の下線部の文の成分はどれか？", choices: ["連用修飾語", "連体修飾語", "主語", "独立語"], answer: 0, exp: "解説：用言（読んでいる）を修飾しているため連用修飾語です。" }
+        ],
+        "中2・1学期": [
+          { topic: "文法・品詞の識別", text: "「花が美しく咲いている」の下線部の品詞と活用形として正しいものは？", choices: ["形容詞・連用形", "形容動詞・連用形", "副詞", "動詞・連体形"], answer: 0, exp: "解説：形容詞「美しい」の連用形です。" }
+        ],
+        "中2・2学期": [
+          { topic: "平家物語の冒頭", text: "『平家物語』の冒頭「祇園精舎の鐘の声、諸行無常の響きあり」の「無常」の意味は？", choices: ["すべては常に変化し続けること", "永遠に変わらないこと", "不老不死であること", "無慈悲であること"], answer: 0, exp: "解説：この世のすべてのものは常に移り変わり、永遠ではないという意味です。" }
+        ],
+        "中2・3学期": [
+          { topic: "小説の読解・走れメロス", text: "太宰治『走れメロス』で、メロスが激怒した王の名前はどれか？", choices: ["ディオニス", "セリヌンティウス", "フィロストラトス", "ゼノン"], answer: 0, exp: "解説：暴君ディオニス王です。" }
+        ],
+        "中3・1学期": [
+          { topic: "奥の細道・芭蕉", text: "松尾芭蕉の『奥の細道』の冒頭「月日は百代の過客にして、行きかふ年もまた旅人なり」の「百代の過客」の意味は？", choices: ["永遠の旅人", "一瞬の幻", "遠くからの使者", "美しい自然"], answer: 0, exp: "解説：時間を永遠の旅人に例えています。" }
+        ],
+        "中3・2学期": [
+          { topic: "漢字・四字熟語", text: "次の四字熟語のうち、意味が正しくないものはどれか？", choices: ["「千載一遇」：二度とないようなよい機会", "「一意専心」：ひとつのことに心を集中する", "「栄枯盛衰」：栄えることと衰えること", "「表裏一体」：表と裏が全く別々であること"], answer: 0, exp: "解説：「表裏一体」は二つのものの関係が密接で切り離せないことです。" }
+        ],
+        "中3・3学期": [
+          { topic: "古典文法・活用", text: "古文の動詞「死ぬ」の活用グループ（活用の種類）はどれか？", choices: ["ナ行変格活用", "ラ行変格活用", "カ行変格活用", "下二段活用"], answer: 0, exp: "解説：「死ぬ」「往ぬ」はナ行変格活用です。" }
+        ]
+      }
+    };
+
+    function getJSTDateString(date = new Date()) {
+      const jstDate = new Date(date.toLocaleString("en-US", { timeZone: "Asia/Tokyo" }));
+      const y = jstDate.getFullYear();
+      const m = String(jstDate.getMonth() + 1).padStart(2, '0');
+      const d = String(jstDate.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    }
+
+    function getJSTMonthKey(date = new Date()) {
+      return getJSTDateString(date).slice(0, 7);
+    }
+
+    function getWrongBox() {
+      try {
+        return JSON.parse(localStorage.getItem(`wrong_box_${currentStudentId}`) || "[]");
+      } catch(e) { return []; }
+    }
+
+    function saveWrongBox(list) {
+      if (!currentStudentId) return;
+      const existing = getWrongBox();
+      const merged = [...new Map([...list, ...existing].map(item => [item.text, item])).values()];
+      localStorage.setItem(`wrong_box_${currentStudentId}`, JSON.stringify(merged));
+    }
+
+    function createQuestion(subject, grade, index, diff) {
+      const subjectMap = advancedQuestionBank[subject] || {};
+      const gradeList = subjectMap[grade] || subjectMap["中1・1学期"] || [
+        { topic: `${subject} 応用`, text: `【${grade}】${subject}の発展的思考力を問う応用設問（No.${index+1}）`, choices: ["正解選択肢", "誤り選択肢A", "誤り選択肢B", "誤り選択肢C"], answer: 0, exp: "解説：進学校レベルの基礎・応用事項です。" }
+      ];
+
+      const template = gradeList[index % gradeList.length];
+      const correctText = template.choices[template.answer];
+      const shuffledChoices = shuffle([...template.choices]);
+      const newAnswerIndex = shuffledChoices.indexOf(correctText);
+
+      return {
+        topic: template.topic,
+        text: template.text,
+        choices: shuffledChoices,
+        answer: newAnswerIndex,
+        selected: null,
+        exp: template.exp
+      };
+    }
+
+    function calculateStats() {
+      const src = learningRecords();
+      const totalQ = src.reduce((s,r) => s + Number(r.total_questions||0), 0);
+      const totalCorrect = src.reduce((s,r) => s + Number(r.correct_count||0), 0);
+      const totalTimeMin = src.reduce((s,r) => s + Number(r.study_seconds||0), 0) / 60;
+      
+      const xp = totalCorrect * 20 + totalQ * 5;
+      const level = Math.floor(xp / 180) + 1;
+      const currentLevelXp = xp % 180;
+      const coins = Math.floor(totalCorrect * 4);
+
+      let rank = "特進チャレンジャー";
+      if (level >= 5) rank = "ハイエリート・スカラー";
+      if (level >= 10) rank = "トップ校マスター";
+      if (level >= 20) rank = "東大・難関大レジェンド";
+
+      const dates = [...new Set(src.map(r => r.updated_at ? r.updated_at.slice(0,10) : ''))].filter(Boolean).sort().reverse();
+      let streak = 0;
+      let checkDate = new Date();
+      for(let i=0; i<30; i++) {
+        const dStr = getJSTDateString(checkDate);
+        if (dates.includes(dStr)) {
+          streak++;
+          checkDate.setDate(checkDate.getDate() - 1);
+        } else if (i === 0) {
+          checkDate.setDate(checkDate.getDate() - 1);
+          const yesterdayStr = getJSTDateString(checkDate);
+          if (dates.includes(yesterdayStr)) {
+            streak++;
+            checkDate.setDate(checkDate.getDate() - 1);
+            continue;
+          }
+          break;
+        } else {
+          break;
+        }
+      }
+
+      return { xp, level, currentLevelXp, coins, rank, totalQ, totalCorrect, totalTimeMin: Math.round(totalTimeMin), streak: Math.max(streak, src.length > 0 ? 1 : 0) };
+    }
+
+    function updateDashboard() {
+      const st = calculateStats();
+      document.getElementById("user-level-badge").textContent = `Lv.${st.level}`;
+      document.getElementById("user-rank-title").textContent = st.rank;
+      document.getElementById("xp-bar").style.width = `${Math.min(100, (st.currentLevelXp / 180)*100)}%`;
+      document.getElementById("user-coins").textContent = st.coins;
+      document.getElementById("streak-count").innerHTML = `<i data-lucide="flame" class="h-3 w-3"></i> ${st.streak}日連続`;
+
+      const monthRecs = learningRecords().filter(r => r.test_month === getJSTMonthKey());
+      const mVol = monthRecs.reduce((s,r) => s + Number(r.total_questions||0), 0);
+      const acc = st.totalQ ? Math.round((st.totalCorrect / st.totalQ) * 100) : null;
+
+      document.getElementById("stat-monthly-vol").textContent = `${mVol}問`;
+      document.getElementById("stat-accuracy").textContent = acc !== null ? `${acc}%` : "—";
+      document.getElementById("stat-study-time").textContent = `${st.totalTimeMin}分`;
+      document.getElementById("stat-total-xp").textContent = st.xp;
+
+      renderAwards(st);
+      renderTasks();
+      if (isAdmin()) renderAdminDashboard();
+      lucide.createIcons();
+    }
+
+    function renderAwards(st) {
+      const awards = [
+        { title: "進学校の第一歩", detail: "初めての発展学習を完了", ok: st.totalQ >= 1 },
+        { title: "難問ハンター", detail: "累計30問突破", ok: st.totalQ >= 30 },
+        { title: "レベル5達成", detail: "Lv.5 に到達する", ok: st.level >= 5 },
+        { title: "特進エリート", detail: "正答率 90% 以上", ok: st.totalQ >= 10 && (st.totalCorrect/st.totalQ)>=0.90 },
+        { title: "継続の鬼", detail: "連続学習3日以上", ok: st.streak >= 3 },
+        { title: "マスター・スカラー", detail: "累計100問突破", ok: st.totalQ >= 100 }
+      ];
+      const container = document.getElementById("awards-container");
+      container.replaceChildren();
+      let count = 0;
+      awards.forEach(a => {
+        if (a.ok) count++;
+        const f = document.getElementById("tpl-award").content.cloneNode(true);
+        f.querySelector('[data-field="title"]').textContent = a.title;
+        f.querySelector('[data-field="detail"]').textContent = a.detail;
+        if (!a.ok) f.querySelector("div").classList.add("opacity-40", "grayscale");
+        container.appendChild(f);
+      });
+      document.getElementById("badge-progress").textContent = `${count} / ${awards.length} 解放`;
+    }
+
+    function renderTasks() {
+      const container = document.getElementById("tasks-container");
+      container.replaceChildren();
+      const myTasks = records.filter(r => r.activity_type === "課題配信" && (r.student_id === currentStudentId || r.student_id === "ALL"));
+      
+      myTasks.forEach(t => {
+        const f = document.getElementById("tpl-task").content.cloneNode(true);
+        f.querySelector('[data-field="title"]').textContent = t.term_title;
+        f.querySelector('[data-field="detail"]').textContent = `教科: ${t.subject || '数学'} / 学年学期: ${t.grade_level}`;
+        const btn = f.querySelector('[data-action="start-task"]');
+        
+        const isCompleted = records.some(r => r.student_id === currentStudentId && r.activity_type === "課題完了" && r.task_id === (t.task_id || t.id));
+        if (isCompleted) {
+          btn.textContent = "完了済";
+          btn.classList.remove("bg-emerald-500", "hover:bg-emerald-400");
+          btn.classList.add("bg-slate-700", "text-slate-400", "cursor-not-allowed");
+          btn.disabled = true;
+        } else {
+          btn.addEventListener("click", () => {
+            activeTaskId = t.task_id || t.id;
+            startPractice(t.subject || "数学", t.grade_level, Number(t.total_questions || 5), t.incorrect_questions || "発展");
+          });
+        }
+        container.appendChild(f);
+      });
+      document.getElementById("tasks-empty-state").classList.toggle("hidden", myTasks.length > 0);
+    }
+
+    function showView(viewId) {
+      document.querySelectorAll(".app-view").forEach(v => v.classList.toggle("is-active", v.id === viewId));
+      if (viewId === "records-view") renderRecordsTable();
+      if (viewId === "home-view") updateDashboard();
+    }
+
+    function startTimer() {
+      studyTimerSeconds = 0;
+      clearInterval(timerInterval);
+      timerInterval = setInterval(() => {
+        studyTimerSeconds++;
+        const m = String(Math.floor(studyTimerSeconds / 60)).padStart(2,'0');
+        const s = String(studyTimerSeconds % 60).padStart(2,'0');
+        document.getElementById("timer-display").innerHTML = `<i data-lucide="timer" class="inline h-3.5 w-3.5"></i> ${m}:${s}`;
+      }, 1000);
+    }
+
+    function startPractice(subject, grade, count, diff="発展", forcedWrong=[]) {
+      isGraded = false;
+      startTimer();
+
+      if (forcedWrong.length > 0) {
+        activeQuestions = forcedWrong;
+      } else {
+        activeQuestions = Array.from({length: count}, (_, i) => createQuestion(subject, grade, i, diff));
+      }
+      activeMeta = { subject, grade, diff, count: activeQuestions.length };
+
+      document.getElementById("active-label").textContent = `${subject} · ${grade} (${activeQuestions.length}問)`;
+      renderQuestions();
+      showView("practice-view");
+    }
+
+    function renderQuestions() {
+      const container = document.getElementById("questions-container");
+      container.replaceChildren();
+
+      activeQuestions.forEach((q, i) => {
+        const f = document.getElementById("tpl-question").content.cloneNode(true);
+        const card = f.querySelector("div");
+        card.dataset.index = i;
+        card.querySelector('[data-field="number"]').textContent = `Q${i+1}`;
+        card.querySelector('[data-field="topic"]').textContent = q.topic;
+        card.querySelector('[data-field="question"]').textContent = q.text;
+
+        const cSlot = card.querySelector('[data-field="choices"]');
+        q.choices.forEach((choice, j) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "answer-btn rounded-xl p-3 text-left text-xs font-bold text-white";
+          btn.textContent = choice;
+          btn.addEventListener("click", () => {
+            if (isGraded) return;
+            activeQuestions[i].selected = j;
+            card.querySelectorAll(".answer-btn").forEach((b, idx) => {
+              b.classList.toggle("ring-2", idx === j);
+              b.classList.toggle("ring-sky-400", idx === j);
+            });
+            const ansCount = activeQuestions.filter(x => x.selected !== null).length;
+            document.getElementById("answered-progress").textContent = `${ansCount} / ${activeQuestions.length}`;
+          });
+          cSlot.appendChild(btn);
+        });
+
+        card.querySelector('[data-field="explanation"]').textContent = q.exp;
+        container.appendChild(f);
+      });
+
+      document.getElementById("practice-empty").classList.add("hidden");
+      document.getElementById("practice-active-area").classList.remove("hidden");
+      document.getElementById("result-box").classList.add("hidden");
+    }
+
+    async function gradeAndSave() {
+      if (isGraded || activeQuestions.some(q => q.selected === null)) {
+        alert("すべての問題に回答してください。");
+        return;
+      }
+      clearInterval(timerInterval);
+      isGraded = true;
+
+      const correctCount = activeQuestions.filter(q => q.selected === q.answer).length;
+      const score = Math.round((correctCount / activeQuestions.length) * 100);
+      const wrongTopics = [...new Set(activeQuestions.filter(q => q.selected !== q.answer).map(q => q.topic))];
+
+      const wrongItems = activeQuestions.filter(q => q.selected !== q.answer);
+      if (wrongItems.length > 0) saveWrongBox(wrongItems);
+
+      const hasWrong = getWrongBox().length > 0;
+      const wrongBtn = document.getElementById("btn-mode-wrong");
+      wrongBtn.classList.toggle("hidden", !hasWrong);
+      wrongBtn.textContent = `復習BOXの問題に挑戦 (${getWrongBox().length}問)`;
+
+      activeQuestions.forEach((q, i) => {
+        const card = document.querySelector(`[data-index="${i}"]`);
+        card.querySelector('[data-field="explanation"]').classList.remove("hidden");
+        card.querySelectorAll(".answer-btn").forEach((btn, idx) => {
+          btn.disabled = true;
+          if (idx === q.answer) btn.classList.add("is-correct");
+          if (q.selected !== q.answer && idx === q.selected) btn.classList.add("is-wrong");
+        });
+      });
+
+      const now = new Date().toISOString();
+      const payload = {
+        student_id: currentStudentId,
+        subject: activeMeta.subject,
+        grade_level: activeMeta.grade,
+        term_title: activeMeta.subject,
+        activity_type: activeTaskId ? "課題完了" : "演習完了",
+        task_id: activeTaskId || "",
+        test_month: getJSTMonthKey(),
+        total_questions: activeQuestions.length,
+        correct_count: correctCount,
+        total_score: score,
+        accuracy_rate: score,
+        incorrect_questions: wrongTopics.join(", "),
+        study_seconds: Math.max(15, studyTimerSeconds),
+        updated_at: now
+      };
+
+      if (window.dataSdk) {
+        const res = await window.dataSdk.create(payload);
+        if (res.isOk) records.push(payload);
+      }
+
+      activeTaskId = null;
+      document.getElementById("result-score-text").textContent = `${correctCount} / ${activeQuestions.length}問正解 (${score}%)`;
+      document.getElementById("result-reward-text").textContent = `+${correctCount*20} XP 獲得！ 🪙 +${correctCount*4} コイン獲得！`;
+      document.getElementById("result-box").classList.remove("hidden");
+      updateDashboard();
+    }
+
+    function renderRecordsTable() {
+      const tbody = document.getElementById("records-table-body");
+      tbody.replaceChildren();
+      const src = (isAdmin() ? records : ownRecords()).sort((a,b) => new Date(b.updated_at) - new Date(a.updated_at));
+
+      src.forEach(r => {
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40";
+        const isTaskDone = r.activity_type === "課題完了";
+        const isTaskAssign = r.activity_type === "課題配信";
+        
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-sky-400">${r.student_id}</td>
+          <td class="p-2">
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold ${isTaskDone?'bg-emerald-500/20 text-emerald-300':isTaskAssign?'bg-purple-500/20 text-purple-300':'bg-sky-500/20 text-sky-300'}">
+              ${r.activity_type || '演習'}
+            </span>
+            <span class="ml-1">${r.subject || r.term_title || "-"}</span>
+          </td>
+          <td class="p-2">${r.grade_level || "-"}</td>
+          <td class="p-2 text-slate-400">${r.incorrect_questions || "なし"}</td>
+          <td class="p-2 font-black ${Number(r.total_score||0)>=80?'text-emerald-400':'text-amber-400'}">${r.total_score !== undefined ? r.total_score + '点' : '-'}</td>
+          <td class="p-2">${r.study_seconds ? Math.round(r.study_seconds/60) + '分' : '-'}</td>
+          <td class="p-2 text-slate-500">${fmtTime(r.updated_at)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById("records-empty").classList.toggle("hidden", src.length > 0);
+      document.getElementById("records-count-badge").textContent = `${src.length}件`;
+    }
+
+    function renderAdminDashboard() {
+      if (!isAdmin() || !window.Chart) return;
+
+      const studentMap = {};
+      const currentMonth = getJSTMonthKey();
+      records.filter(r => r.activity_type === "演習完了" || r.activity_type === "課題完了").forEach(r => {
+        if (!studentMap[r.student_id]) studentMap[r.student_id] = { id: r.student_id, q: 0, correct: 0, time: 0, monthQ: 0 };
+        studentMap[r.student_id].q += Number(r.total_questions || 0);
+        studentMap[r.student_id].correct += Number(r.correct_count || 0);
+        studentMap[r.student_id].time += Number(r.study_seconds || 0);
+        if (r.test_month === currentMonth) {
+          studentMap[r.student_id].monthQ += Number(r.total_questions || 0);
+        }
+      });
+
+      const summaryBody = document.getElementById("admin-student-summary-body");
+      summaryBody.replaceChildren();
+      const studentArr = Object.values(studentMap);
+      studentArr.forEach(st => {
+        const acc = st.q > 0 ? Math.round((st.correct / st.q) * 100) : 0;
+        const xp = st.correct * 20 + st.q * 5;
+        const tr = document.createElement("tr");
+        tr.className = "hover:bg-slate-800/40";
+        tr.innerHTML = `
+          <td class="p-2 font-bold text-sky-400">${st.id}</td>
+          <td class="p-2">${st.q}問</td>
+          <td class="p-2 font-black text-emerald-400">${acc}%</td>
+          <td class="p-2">${Math.round(st.time/60)}分</td>
+          <td class="p-2 text-purple-400 font-bold">${xp} XP</td>
+          <td class="p-2 text-sky-300 font-bold">${st.monthQ}問</td>
+        `;
+        summaryBody.appendChild(tr);
+      });
+
+      const topStudents = studentArr.sort((a,b) => b.monthQ - a.monthQ);
+      const rankContainer = document.getElementById("admin-monthly-ranking");
+      rankContainer.replaceChildren();
+      topStudents.slice(0, 5).forEach((st, idx) => {
+        const div = document.createElement("div");
+        div.className = "flex justify-between items-center bg-slate-800/80 p-2 rounded-xl border border-slate-700";
+        div.innerHTML = `<span class="text-amber-400 font-bold">${idx+1}位. 生徒ID: ${st.id}</span><span class="text-sky-300">${st.monthQ}問解決</span>`;
+        rankContainer.appendChild(div);
+      });
+      if(topStudents.length === 0 || topStudents[0].monthQ === 0) {
+        rankContainer.innerHTML = `<div class="text-slate-500 text-center py-2">今月のデータはまだありません</div>`;
+      }
+
+      const topicCount = {};
+      records.filter(r => r.incorrect_questions).forEach(r => {
+        r.incorrect_questions.split(", ").forEach(top => {
+          if (top && top !== "なし") topicCount[top] = (topicCount[top] || 0) + 1;
+        });
+      });
+      const topTopics = Object.entries(topicCount).sort((a,b) => b[1] - a[1]);
+      const weakContainer = document.getElementById("admin-weakness-ranking");
+      weakContainer.replaceChildren();
+      topTopics.slice(0, 5).forEach(([top, count], idx) => {
+        const div = document.createElement("div");
+        div.className = "flex justify-between items-center bg-slate-800/80 p-2 rounded-xl border border-slate-700";
+        div.innerHTML = `<span class="text-rose-400 font-bold">${idx+1}. ${top}</span><span class="text-slate-300">${count}件のつまずき</span>`;
+        weakContainer.appendChild(div);
+      });
+      if(topTopics.length === 0) {
+        weakContainer.innerHTML = `<div class="text-slate-500 text-center py-2">まだつまずきデータはありません</div>`;
+      }
+
+      const gradesList = [
+        '中1・1学期', '中1・2学期', '中1・3学期',
+        '中2・1学期', '中2・2学期', '中2・3学期',
+        '中3・1学期', '中3・2学期', '中3・3学期'
+      ];
+      const gradeAverages = gradesList.map(g => {
+        const targetRecs = records.filter(r => r.grade_level === g && r.total_score !== undefined);
+        if (targetRecs.length === 0) return 0;
+        const sum = targetRecs.reduce((acc, cur) => acc + Number(cur.total_score), 0);
+        return Math.round(sum / targetRecs.length);
+      });
+
+      const ctx = document.getElementById("admin-chart").getContext("2d");
+      if (adminChart) adminChart.destroy();
+      adminChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: gradesList,
+          datasets: [{ label: '全学期 平均正答率 (%) [リアルタイム]', data: gradeAverages, backgroundColor: '#38bdf8' }]
+        },
+        options: { responsive: true, scales: { y: { beginZero: true, max: 100 } } }
+      });
+    }
+
+    const fmtTime = iso => iso ? new Date(iso).toLocaleString("ja-JP", { month:"numeric", day:"numeric", hour:"2-digit", minute:"2-digit" }) : "-";
+    const shuffle = arr => { const b=[...arr]; for(let i=b.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [b[i],b[j]]=[b[j],b[i]] } return b; };
+    const isAdmin = () => currentStudentId === "0001";
+    const ownRecords = () => records.filter(r => r.student_id === currentStudentId);
+    const learningRecords = () => ownRecords().filter(r => r.activity_type === "演習完了" || r.activity_type === "課題完了");
+
+    document.getElementById("login-form").addEventListener("submit", e => {
+      e.preventDefault();
+      const id = document.getElementById("login-student-id").value.trim();
+      const pass = document.getElementById("login-password").value.trim();
+      const msg = document.getElementById("login-message");
+
+      if (!/^[0-9]{4}$/.test(id)) {
+        msg.textContent = "生徒IDは4桁の数字で入力してください";
+        return;
+      }
+      if (!passwords[id]) {
+        passwords[id] = pass;
+        localStorage.setItem("master_passwords", JSON.stringify(passwords));
+      }
+      if (passwords[id] !== pass) {
+        msg.textContent = "パスワードが正しくありません";
+        return;
+      }
+
+      currentStudentId = id;
+      document.body.classList.add("is-authenticated");
+      document.body.classList.toggle("is-admin", isAdmin());
+
+      const wrongCount = getWrongBox().length;
+      const wrongBtn = document.getElementById("btn-mode-wrong");
+      wrongBtn.classList.toggle("hidden", wrongCount === 0);
+      wrongBtn.textContent = `復習BOXの問題に挑戦 (${wrongCount}問)`;
+
+      showView(isAdmin() ? "records-view" : "home-view");
+      updateDashboard();
+    });
+
+    document.getElementById("logout-button").addEventListener("click", () => {
+      currentStudentId = null;
+      document.getElementById("login-password").value = "";
+      document.body.classList.remove("is-authenticated", "is-admin");
+    });
+
+    document.querySelectorAll("[data-view]").forEach(btn => {
+      btn.addEventListener("click", () => showView(btn.dataset.view));
+    });
+
+    document.getElementById("practice-form").addEventListener("submit", e => {
+      e.preventDefault();
+      activeTaskId = null;
+      startPractice(
+        document.getElementById("sel-subject").value,
+        document.getElementById("sel-grade").value,
+        Number(document.getElementById("sel-count").value),
+        document.getElementById("sel-diff").value
+      );
+    });
+
+    document.getElementById("btn-grade").addEventListener("click", gradeAndSave);
+    document.getElementById("btn-mode-wrong").addEventListener("click", () => {
+      const box = getWrongBox();
+      if (box.length > 0) startPractice("復習BOX", "全範囲", box.length, "発展", box);
+    });
+    document.getElementById("quick-practice-btn").addEventListener("click", () => showView("practice-view"));
+
+    document.getElementById("assignment-form").addEventListener("submit", async e => {
+      e.preventDefault();
+      const uniqueTaskId = 'task_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const payload = {
+        student_id: document.getElementById("assign-id").value.trim(),
+        term_title: document.getElementById("assign-title").value.trim(),
+        subject: document.getElementById("assign-subject").value,
+        grade_level: document.getElementById("assign-grade").value,
+        incorrect_questions: document.getElementById("assign-diff").value,
+        total_questions: 5,
+        task_id: uniqueTaskId,
+        activity_type: "課題配信",
+        test_month: getJSTMonthKey(),
+        updated_at: new Date().toISOString()
+      };
+      if (window.dataSdk) {
+        const res = await window.dataSdk.create(payload);
+        if (res.isOk) {
+          records.push(payload);
+          document.getElementById("assignment-msg").textContent = "課題を配信しました！";
+          setTimeout(() => document.getElementById("assignment-msg").textContent = "", 3000);
+        }
+      }
+    });
+
+    async function initSDK() {
+      lucide.createIcons();
+      if (window.dataSdk) {
+        const res = await window.dataSdk.init({
+          onDataChanged(data) {
+            records = data;
+            updateDashboard();
+          }
+        });
+        sdkReady = res.isOk;
+      }
+    }
+    initSDK();
+  </script>
+ </body>
+</html>
